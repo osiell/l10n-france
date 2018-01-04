@@ -28,7 +28,7 @@
         'l10n_eu_nace'
     ],
     'data': [
-        #'views/res_partner.xml',
+        'data/res_partner_nace.xml',
     ],
     'license': 'AGPL-3',
     'installable': True,

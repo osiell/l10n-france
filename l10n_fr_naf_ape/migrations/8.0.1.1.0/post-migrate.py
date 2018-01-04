@@ -9,15 +9,18 @@ logger = logging.getLogger(__name__)
 def migrate(cr, version):
     env = api.Environment(cr, SUPERUSER_ID, {})
     if version:
-        migrate_ape_xml_id(env)
+        with openerp.api.Environment.manage():
+            with openerp.registry(env.cr.dbname).cursor() as new_cr:
+                new_env = openerp.api.Environment(new_cr, env.uid, env.context)
+                move_old_naf_ape(new_env)
 
-def migrate_ape_xml_id(env):
+def move_old_naf_ape(env):
     logger.info("[UDPATE res.partner.category] Correction category_id for ape")
 
     data_records = env['ir.model.data'].search([
         ('model', '=', 'res.partner.category'),
         ('res_id', '!=', False),
-        ('name', 'ilike', 'nace'),
+        ('name', 'ilike', 'naf'),
         ('module', '=', 'l10n_fr_naf_ape'),
         ])
 
@@ -32,16 +35,12 @@ def migrate_ape_xml_id(env):
         ])
 
     for partner in res_partners:
-        # if re.match("^\[.*\]", category.name):
-        #     nace_code = category.name.split("[")[1].split("]")[0]
-        category_ids = category_model.browse()
         for category in partner.category_id:
             if category in naf_categs:
-                if re.match("^\[.*\]", category.parent_id.name):
-                    naf_code = category.parent_id.name.split("[")[1].split("]")[0]
-                    naf = session.env['res.partner.nace'].search([('code', '=', naf_code)])
+                if re.match("^\[.*\]", category.name):
+                    naf_code = category.name.split("[")[1].split("]")[0]
+                    naf = env['res.partner.nace'].search([('code', '=', naf_code)])
                     naf.ensure_one()
                     partner.ape_id = naf
-                    category_ids += category
-                    category.active= False
+    naf_categs.write({'active': False})
     data_records.unlink()
